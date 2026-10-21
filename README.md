@@ -190,6 +190,12 @@ access log and an optional request log. [docs/serving_publicly.md](docs/serving_
 and a checklist. The other commands measure a deployment: `bench` for latency, `eval` for accuracy and calibration on
 labelled requests, and `quantize` for FP8, GGUF and MLX builds.
 
+## Offline reward-model experiment
+
+The optional [small reward-model initial gate](docs/reward-gate.md) caches frozen SigLIP 2
+features, compares three small outcome heads on RoboReward, and mines ABC annotation
+candidates for review. It is an offline research experiment, separate from the inference server.
+
 ## Documentation
 
 | Document | Contents |

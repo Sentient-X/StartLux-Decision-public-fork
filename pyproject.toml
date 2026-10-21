@@ -36,11 +36,13 @@ Models = "https://huggingface.co/startlux-models"
 [project.optional-dependencies]
 vllm = ["vllm==0.31.0"]                              # the vLLM plugin is validated on 0.31.0 and on 0.19.1 (the release runs)
 transformers = ["torch>=2.4", "transformers>=5.8,<5.9"]  # the bidirectional read-out reproduces transformers 5.8
+reward-gate = ["torch>=2.4", "transformers>=5.8,<6", "huggingface-hub>=1.0", "safetensors>=0.4", "pillow>=10", "av>=12", "mcap>=1.2", "mcap-protobuf-support>=0.5"]
 llamacpp = []                                        # llama-server is a separate program (llama.cpp)
 mlx = ["mlx-vlm>=0.7.6"]                              # the MLX engine; brings mlx
 
 [project.scripts]
 startlux-decide = "startlux_decide.cli:main"
+startlux-reward-gate = "startlux_decide.reward_gate.__main__:main"
 
 [project.entry-points."vllm.general_plugins"]
 startlux_prefix_bidir = "startlux_decide.vllm_plugin:plugin"
