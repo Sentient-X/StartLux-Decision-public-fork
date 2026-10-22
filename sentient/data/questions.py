@@ -221,6 +221,25 @@ def failure_type(ep: Episode, ts: list[float], rng: random.Random) -> Optional[Q
                              "criteria": F.ordered({k: None for k in kinds}, rng)}, {ep.failure_type: 1.0})
 
 
+def failure_reason(ep: Episode, ts: list[float], rng: random.Random) -> Optional[Q]:
+    """Which written observation matches what went wrong, among others from the same task (human reasons)."""
+    true = ep.extra.get("failure_reason")
+    pool = [r for r in dict.fromkeys(ep.extra.get("reason_pool") or []) if r != true]
+    if not true or ep.failure_onset is None or ts[-1] < ep.failure_onset + 0.5 or len(pool) < 2:
+        return None
+    others = rng.sample(pool, min(len(pool), rng.choice([2, 3, 4])))
+    ids = F.letters_or_names(len(others) + 1, rng)
+    texts = [true] + others
+    rng.shuffle(texts)
+    if any(len(t) > 400 for t in texts):
+        return None
+    options = dict(zip(ids, texts))
+    text = F.phrase(["Which description matches what went wrong?", "What happened in this failed attempt?",
+                     "Pick the account of the failure that fits the frames."], rng)
+    return ("failure_reason", {"type": "choice", "instructions": text, "criteria": options},
+            {ids[texts.index(true)]: 1.0})
+
+
 def takeover(ep: Episode, ts: list[float], rng: random.Random) -> Optional[Q]:
     if ep.interventions is None:
         return None
@@ -249,5 +268,5 @@ def episode_score(ep: Episode, ts: list[float], rng: random.Random) -> Optional[
 GENERATORS: dict[str, Callable] = {
     "progress": progress, "remaining": remaining, "time_to_go": time_to_go, "will_succeed": will_succeed,
     "succeeded": succeeded, "stage": stage, "stage_progress": stage_progress, "change": change, "compare": compare,
-    "failed": failed, "failure_type": failure_type, "takeover": takeover, "episode_score": episode_score,
+    "failed": failed, "failure_type": failure_type, "failure_reason": failure_reason, "takeover": takeover, "episode_score": episode_score,
 }
