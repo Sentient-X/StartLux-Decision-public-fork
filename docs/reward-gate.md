@@ -5,7 +5,10 @@ RoboReward and mines ABC annotation intervals for review. It does not train a re
 classifier, run RL, invoke StartLux/FLORA as judges, launch cloud compute, or authorize
 robot motion. The existing inference server is unchanged.
 
-The [22 October laptop smoke report](reward-gate-smoke-2026-10-22.md) records actual results and limits.
+The [full 8k laptop report](reward-gate-full-2026-10-22.md) records the completed outcome
+screen and its failed continuation gate. The [30-window ABC audit](reward-gate-abc-audit-2026-10-22.md)
+also failed its usable-event gate. The earlier [laptop smoke report](reward-gate-smoke-2026-10-22.md)
+remains historical software qualification.
 
 ## Install and run
 
@@ -41,7 +44,7 @@ budgets are additional. Download/cache operations retain a 512 MiB disk reserve.
 No command accepts dataset terms or purchases remote compute. Existing Hugging Face
 credentials are used for gated ABC access and never written into outputs.
 
-For the planned outcome gate, prepare a **new manifest/output directory** with
+For the full outcome gate, prepare a **new manifest/output directory** with
 `--train-count 8000 --dev-count 512`. Estimate media sizes and raw feature storage first,
 then set explicit budgets suitable for that worker. Do not reuse or overwrite a smoke
 manifest. The small local run establishes software behavior; its `gate_passed` is null.
