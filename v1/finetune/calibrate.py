@@ -5,7 +5,9 @@ decision_config.json.  Temperature never changes which option wins; it only shar
 
 dev.jsonl uses the fine-tuning format (docs/finetuning.md).  Use data the model was not trained on, ideally from more
 than one source, and check the result on a second held-out set: a temperature that fits one source can over- or
-under-correct on another.  A type with fewer than 200 dev questions gets the pooled temperature.
+under-correct on another.  A type with fewer than 200 dev questions gets the pooled temperature.  Records with
+"images" (base64 strings, data URIs or file paths relative to the JSONL file) are read as decide() reads a request with
+images.
 """
 import argparse
 import json
@@ -50,27 +52,38 @@ def main():
     ap.add_argument("--dev", required=True)
     ap.add_argument("--device", help="cuda or cpu (default: cuda when available)")
     ap.add_argument("--dry-run", action="store_true")
+    ap.add_argument("--max-pixels", type=int, default=1 << 20, help="bound on each image after resizing, as serve --max-pixels")
     a = ap.parse_args()
-    m = StartLuxDecision(a.model, device=a.device)
+    m = StartLuxDecision(a.model, device=a.device, max_pixels=a.max_pixels)
+    base = os.path.dirname(os.path.abspath(a.dev))
     by_type = {"choice": [], "noul": [], "score": []}
     with open(a.dev, encoding="utf-8") as f:
         for line in f:
             if not line.strip():
                 continue
             rec = json.loads(line)
+            images = [os.path.join(base, v) if isinstance(v, str) and os.path.isfile(os.path.join(base, v)) else v
+                      for v in rec.get("images") or []]
+            state = rec["state"]
+            if images:                                    # as decide() reads a request with images
+                m._media = m._encode_images(images)
+                state = m._media_state(state, len(images))
             rows, targets = [], []
             for key, q in rec["questions"].items():
                 target = (rec.get("targets") or {}).get(key)
-                row = J.from_systemone(rec["state"], q, qid=key)
+                row = J.from_systemone(state, q, qid=key)
                 if target is None or (row["type"] == "choice" and len(row["options"]) > J.MAX_OPTIONS):
                     continue
                 vec = torch.tensor([float(target.get(o["id"], 0.0)) for o in row["options"]])
                 rows.append(row)
                 targets.append(vec / vec.sum())
-            if rows:
-                logits, _ = m._logits(rows)
-                for row, z, t in zip(rows, logits, targets):
-                    by_type[row["type"]].append((z.float(), t))
+            try:
+                if rows:
+                    logits, _ = m._logits(rows)
+                    for row, z, t in zip(rows, logits, targets):
+                        by_type[row["type"]].append((z.float(), t))
+            finally:
+                m._kept = m._media = None
     pooled = [x for v in by_type.values() for x in v]
     best = lambda pairs: min(GRID, key=lambda T: nll(pairs, T))
     t_pool = best(pooled)
