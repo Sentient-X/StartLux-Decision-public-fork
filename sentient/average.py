@@ -17,7 +17,6 @@ from pathlib import Path
 
 
 def main():
-    import torch
     from safetensors import safe_open
     from safetensors.torch import save_file
 
