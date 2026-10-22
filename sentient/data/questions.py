@@ -181,13 +181,17 @@ def compare(ep: Episode, ts: list[float], rng: random.Random) -> Optional[Q]:
     d = ep.progress(b) - ep.progress(a)
     names = rng.choice([("first frame", "last frame"), ("earliest frame", "latest frame"), ("start of the clip", "end of the clip")])
     sigma = SIGMA.get(ep.progress_from or '', 0.1)
-    p_b = 1.0 if ep.monotone and d > 0.03 else yes_probability(d, sigma)
     tie = rng.random() < 0.5
-    if tie:
-        flat = 0.0 if ep.monotone and d > 0.06 else three_way(d, 0.03, sigma)[1]
-        target = {names[1]: p_b * (1 - flat), names[0]: (1 - p_b) * (1 - flat), "about the same": flat}
+    flat = three_way(d, 0.03, sigma)[1] if tie else 0.0
+    if ep.monotone:                       # the earlier frame is never ahead in a demonstration
+        if not tie and d < 0.03:
+            return None
+        p_b = 1.0
     else:
-        target = {names[1]: p_b, names[0]: 1 - p_b}
+        p_b = yes_probability(d, sigma)
+    target = {names[1]: p_b * (1 - flat), names[0]: (1 - p_b) * (1 - flat)}
+    if tie:
+        target["about the same"] = flat
     options = {k: None for k in target}
     text = F.phrase(["Which shows the task further along: the {a} or the {b}?",
                      "Is the robot closer to finishing at the {a} or at the {b}?"], rng, a=names[0], b=names[1])
