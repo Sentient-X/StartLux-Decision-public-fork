@@ -37,6 +37,25 @@ def labels_of(q: dict, target: dict) -> dict:
     return {str(k): float(v) for k, v in target.items()}
 
 
+HOSTED_MIN_PIXELS = 147456   # Jev 1.14 refuses smaller images ("Invalid image dimensions"); 384 x 384, or 512 x 288
+
+
+def _hosted_jpeg(path: Path) -> bytes:
+    """The image as JPEG, upsampled to at least HOSTED_MIN_PIXELS (aspect kept), as our engine upsamples to its own
+    minimum: no information is added, the hosted model just accepts it."""
+    import io
+    import math
+
+    from PIL import Image
+    img = Image.open(path).convert("RGB")
+    if img.width * img.height < HOSTED_MIN_PIXELS:
+        k = math.sqrt(HOSTED_MIN_PIXELS / (img.width * img.height))
+        img = img.resize((math.ceil(img.width * k), math.ceil(img.height * k)), Image.BICUBIC)
+    buf = io.BytesIO()
+    img.save(buf, "JPEG", quality=92)
+    return buf.getvalue()
+
+
 def _image_parts(state, images, base: Path) -> list:
     """State text and images as OpenRouter's state parts, each image at its <image> mark (else first)."""
     from startlux_decide.prompt import state_text
@@ -44,7 +63,7 @@ def _image_parts(state, images, base: Path) -> list:
     uris = []
     for v in images:
         p = base / v
-        uris.append("data:image/jpeg;base64," + base64.b64encode(p.read_bytes()).decode() if p.is_file() else v)
+        uris.append("data:image/jpeg;base64," + base64.b64encode(_hosted_jpeg(p)).decode() if p.is_file() else v)
     pieces = text.split("<image>")
     if len(pieces) - 1 != len(uris):
         pieces = [""] * (len(uris)) + [text]
