@@ -28,13 +28,14 @@ def _rollout(session: str, label: str, folder: Path, meta: dict, task: str) -> E
     if not videos:
         return None
     import av
+    duration = 0.0
     try:
         with av.open(str(next(iter(videos.values())))) as c:
             s = c.streams.video[0]
             duration = float(s.duration * s.time_base) if s.duration and s.time_base else float(c.duration or 0) / 1e6
     except Exception:
         return None
-    if duration <= 1:
+    if not duration or duration <= 1:
         return None
     partial = meta.get("partial_success")
     success = meta.get("binary_success")
@@ -43,7 +44,7 @@ def _rollout(session: str, label: str, folder: Path, meta: dict, task: str) -> E
                    frame=lambda c, t, v=videos: VideoFrames(v[c]).frames([t])[t],
                    frames=lambda c, ts, v=videos: VideoFrames(v[c]).frames(ts),
                    robot="Franka arm (DROID setup)",
-                   success=None if success is None else bool(success), success_from="human",
+                   success=None if success is None else bool(success), success_from="human", ends_when_done=False,
                    extra={"final_progress": None if partial is None else float(partial), "final_progress_sigma": 0.08})
 
 

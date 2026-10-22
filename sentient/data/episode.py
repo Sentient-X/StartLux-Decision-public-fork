@@ -34,6 +34,7 @@ class Episode:
     # Outcome of the whole episode.
     success: Optional[bool] = None
     success_from: Optional[Provenance] = None
+    ends_when_done: bool = True                   # a successful episode stops once the task is done (not on a timer)
     # Subtask segmentation, in order, covering the useful part of the episode (SARM-style stages).
     stages: Optional[list[Stage]] = None
     stages_from: Optional[Provenance] = None
@@ -46,7 +47,7 @@ class Episode:
     failure_onset: Optional[float] = None
     failure_type: Optional[str] = None
     failure_types: Optional[list[str]] = None     # the source's vocabulary of failure kinds
-    failure_from: Optional[Provenance] = None
+    failure_from: Optional[Provenance] = None     # set only when every failure moment was marked (exhaustive)
     # Human takeovers: (start, end) seconds.
     interventions: Optional[list[tuple[float, float]]] = None
     # A graded score of the whole episode: (value, labels lowest first), e.g. (3, ["1", "2", "3", "4", "5"]).

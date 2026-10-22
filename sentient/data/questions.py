@@ -60,7 +60,7 @@ def remaining(ep: Episode, ts: list[float], rng: random.Random) -> Optional[Q]:
 
 
 def time_to_go(ep: Episode, ts: list[float], rng: random.Random) -> Optional[Q]:
-    if ep.success is not True:
+    if ep.success is not True or not ep.ends_when_done:
         return None
     left = ep.duration - ts[-1]
     edges = rng.choice([[0, 5, 15, 30, 1e9], [0, 3, 10, 20, 40, 1e9], [0, 10, 30, 1e9]])
@@ -199,8 +199,8 @@ def compare(ep: Episode, ts: list[float], rng: random.Random) -> Optional[Q]:
 
 
 def failed(ep: Episode, ts: list[float], rng: random.Random) -> Optional[Q]:
-    if ep.failure_onset is None and ep.success is not True:
-        return None
+    if ep.failure_from is None or (ep.failure_onset is None and ep.success is not True):
+        return None             # "nothing went wrong" needs a source that marked every failure
     t = ts[-1]
     p = 0.0 if ep.failure_onset is None else yes_probability(t - ep.failure_onset, 0.15 if ep.failure_from == "human" else 0.4)
     text = F.phrase(["Has something gone wrong with the task {now}?", "Has the robot made a mistake or failed {now}?",
