@@ -23,13 +23,19 @@ GROUP = "sentient-decision"
 _PROGRESS = re.compile(r"(Loading weights|Fetching|it/s\]|%\|)")
 
 
+def run_id(name: str) -> str:
+    """Waddle's hosted run ids are 32 hex digits; a stable one per logical name keeps resume on the same run."""
+    import uuid
+    return uuid.uuid5(uuid.NAMESPACE_URL, f"sentient-decision/{name}").hex
+
+
 def _init(a, run_type, extra_config=None):
     import waddle
     config = {}
     for path in a.config or []:
         config[Path(path).stem] = json.loads(Path(path).read_text())
     config.update(extra_config or {})
-    return waddle.init(run_id=a.run_id, resume=True, display_name=a.name, description=a.description,
+    return waddle.init(run_id=run_id(a.run_id), resume=True, display_name=a.name, description=a.description,
                        group_name=GROUP, run_type=waddle.RunType(run_type), config=config, system_metrics=a.system)
 
 
