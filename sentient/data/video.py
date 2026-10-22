@@ -37,6 +37,35 @@ class VideoFrames:
             raise ValueError(f"no frame at {t:.2f}s in {self.path}")
         return last.to_image()
 
+    def frames(self, times: list[float]) -> dict[float, "object"]:
+        """{t: PIL image} for many times at once: one sequential decode, keeping the first frame at or after each t."""
+        import av
+        want = sorted(set(times))
+        out: dict[float, object] = {}
+        if not want:
+            return out
+        with av.open(str(self.path)) as c:
+            s = c.streams.video[0]
+            s.thread_type = "AUTO"
+            half = 0.5 / max(float(s.average_rate or 30), 1)
+            start = self.offset + want[0]
+            if s.time_base is not None and start > 2:
+                c.seek(int((start - 1) / s.time_base), stream=s, backward=True, any_frame=False)
+            i, last = 0, None
+            for f in c.decode(s):
+                if f.time is None:
+                    continue
+                last = f
+                while i < len(want) and f.time >= self.offset + want[i] - half:
+                    out[want[i]] = f.to_image()
+                    i += 1
+                if i == len(want) or f.time > self.offset + want[-1] + 1:
+                    break
+            while i < len(want) and last is not None:      # times past the last frame get the last frame
+                out[want[i]] = last.to_image()
+                i += 1
+        return out
+
     def close(self):
         if self._c is not None:
             self._c.close()

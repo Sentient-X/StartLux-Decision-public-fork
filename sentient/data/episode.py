@@ -29,6 +29,7 @@ class Episode:
     duration: float                               # seconds
     cameras: list[str]                            # camera names, as the source names them
     frame: Callable[[str, float], "object"]       # (camera, seconds) -> PIL image
+    frames: Optional[Callable[[str, list[float]], dict]] = None   # (camera, [seconds]) -> {seconds: image}, faster
     robot: Optional[str] = None
     # Outcome of the whole episode.
     success: Optional[bool] = None

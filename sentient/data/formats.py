@@ -64,7 +64,8 @@ def state_and_images(task: str, frames: list[tuple[str, float, str]], robot: str
         if layout == 1:
             lines.append(rng.choice(["Frames, oldest first:", "Camera frames in time order:", "What the cameras saw:",
                                      "Observations:", "Recent frames (earliest to latest):"]))
-        lines.append(sep.join(f"{c}: <image>" if rng.random() < 0.9 else "<image>" for c in caps))
+        captioned = rng.random() < 0.85
+        lines.append(sep.join(f"{c}: <image>" if captioned else "<image>" for c in caps))
         return "\n".join(lines), images
     if layout == 3:                                     # images first (no marks), then the text
         head = rng.choice(["The images are frames from the robot's cameras, oldest first.",

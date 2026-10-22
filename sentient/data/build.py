@@ -54,7 +54,8 @@ def window(ep: Episode, rng: random.Random) -> list[float]:
 
 
 def episode_records(ep: Episode, out: Path, windows: int) -> list[dict]:
-    recs = []
+    """Plan every window first, then read each camera's frames in one pass, then write records."""
+    plans = []
     for w in range(windows):
         rng = random.Random(_seed("sentient.build/v1", ep.source, ep.episode_id, w))
         ts = window(ep, rng)
@@ -67,18 +68,35 @@ def episode_records(ep: Episode, out: Path, windows: int) -> list[dict]:
         picked = sorted(asked, key=lambda kq: -WEIGHT[kq[0]] * rng.random())[:n]
         cams = ep.cameras if len(ep.cameras) == 1 else rng.sample(ep.cameras, 2 if (rng.random() < 0.3 and len(ts) <= 4) else 1)
         side = rng.choice(SIDES[:3] if len(ts) * len(cams) > 4 else SIDES)
-        frames = []
-        try:
+        plans.append((w, rng, ts, picked, cams, side))
+    need: dict[str, set] = {}
+    for _, _, ts, _, cams, side in plans:
+        for c in cams:
             for t in ts:
-                for c in cams:
-                    rel = f"img/{ep.source}/{ep.episode_id}/{c}-{t:.3f}-{side}.jpg".replace(" ", "_")
-                    if not (out / rel).exists():
-                        _save(ep.frame(c, t), out / rel, side)
-                    frames.append((c, t, rel))
-        except Exception as e:  # an unreadable frame drops the window, not the build
-            print(json.dumps({"skip": ep.episode_id, "window": w, "error": repr(e)[:200]}), flush=True)
+                if not (out / _rel(ep, c, t, side)).exists():
+                    need.setdefault(c, set()).add(t)
+    images: dict[tuple[str, float], object] = {}
+    try:
+        for c, times in need.items():
+            got = ep.frames(c, sorted(times)) if ep.frames else {t: ep.frame(c, t) for t in times}
+            images.update({(c, t): img for t, img in got.items()})
+    except Exception as e:  # an unreadable video drops the episode, not the build
+        print(json.dumps({"skip": ep.episode_id, "error": repr(e)[:200]}), flush=True)
+        return []
+    recs = []
+    for w, rng, ts, picked, cams, side in plans:
+        frames = []
+        for t in ts:
+            for c in cams:
+                rel = _rel(ep, c, t, side)
+                if not (out / rel).exists():
+                    if (c, t) not in images:
+                        break
+                    _save(images[(c, t)], out / rel, side)
+                frames.append((c, t, rel))
+        if len(frames) != len(ts) * len(cams):
             continue
-        state, images = F.state_and_images(ep.task, frames, ep.robot, rng)
+        state, imgs = F.state_and_images(ep.task, frames, ep.robot, rng)
         questions, targets, used = {}, {}, set()
         for kind, (_, spec, target) in picked:
             key = F.key_name(kind, rng)
@@ -86,10 +104,14 @@ def episode_records(ep: Episode, out: Path, windows: int) -> list[dict]:
                 key += "_"
             used.add(key)
             questions[key], targets[key] = spec, target
-        recs.append({"state": state, "images": images, "questions": questions, "targets": targets,
+        recs.append({"state": state, "images": imgs, "questions": questions, "targets": targets,
                      "meta": {"source": ep.source, "episode": ep.episode_id, "family": ep.family,
                               "split": ep.split(), "t": [round(t, 3) for t in ts], "kinds": [k for k, _ in picked]}})
     return recs
+
+
+def _rel(ep: Episode, camera: str, t: float, side: int) -> str:
+    return f"img/{ep.source}/{ep.episode_id}/{camera}-{t:.3f}-{side}.jpg".replace(" ", "_")
 
 
 def preference_records(pref: Preference, out: Path) -> list[dict]:

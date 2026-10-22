@@ -11,7 +11,7 @@ import hashlib
 from pathlib import Path
 
 from ..episode import Episode, Stage
-from ..video import opened
+from ..video import VideoFrames, opened
 
 CAMERAS = ["cam_high", "cam_low", "cam_left_wrist", "cam_right_wrist"]
 HELD_OUT_TASKS = 6
@@ -92,8 +92,12 @@ def items(raw: Path, shard: int, shards: int):
             p, off = paths[camera]
             return opened(p, off).frame(t)
 
+        def frames(camera: str, ts: list[float], paths=paths):
+            p, off = paths[camera]
+            return VideoFrames(Path(p), off).frames(ts)
+
         task = m["tasks"][0]
         yield Episode(source="fineart", episode_id=str(ep), family=f"fineart:{ep}", task=task, duration=duration,
-                      cameras=list(paths), frame=frame, robot="bimanual ALOHA-style arms (Trossen)",
+                      cameras=list(paths), frame=frame, frames=frames, robot="bimanual ALOHA-style arms (Trossen)",
                       stages=stages, stages_from="human", progress=progress, progress_from="program",
                       progress_sigma=0.08, designated_test=task in held)
