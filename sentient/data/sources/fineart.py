@@ -53,7 +53,9 @@ def items(raw: Path, shard: int, shards: int):
     import pyarrow.parquet as pq
 
     raw = Path(raw) / "fineart"
-    meta = pq.read_table(raw / "meta/episodes/chunk-000/file-000.parquet").to_pylist()
+    cols = ["episode_index", "tasks", "length"] + [f"videos/observation.images.{c}/{k}" for c in CAMERAS
+                                                   for k in ("chunk_index", "file_index", "from_timestamp")]
+    meta = pq.read_table(raw / "meta/episodes/chunk-000/file-000.parquet", columns=cols).to_pylist()
     rows = _stage_rows(raw)
     held = _held_out(sorted({m["tasks"][0] for m in meta}))
     for m in meta:
