@@ -39,6 +39,8 @@ def follow(a):
     pos_file = log.with_suffix(log.suffix + ".waddle-pos")
     state = json.loads(pos_file.read_text()) if pos_file.exists() else {"offset": 0, "step": 0}
     _init(a, "training")
+    while not log.exists():
+        time.sleep(a.poll)
     finished = False
     with open(log, "rb") as f:
         f.seek(state["offset"])
