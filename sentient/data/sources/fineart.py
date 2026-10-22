@@ -100,4 +100,4 @@ def items(raw: Path, shard: int, shards: int):
         yield Episode(source="fineart", episode_id=str(ep), family=f"fineart:{ep}", task=task, duration=duration,
                       cameras=list(paths), frame=frame, frames=frames, robot="bimanual ALOHA-style arms (Trossen)",
                       stages=stages, stages_from="human", progress=progress, progress_from="program",
-                      progress_sigma=0.08, designated_test=task in held)
+                      progress_sigma=0.08, monotone=True, designated_test=task in held)

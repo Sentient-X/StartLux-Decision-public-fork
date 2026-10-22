@@ -41,6 +41,7 @@ class Episode:
     progress: Optional[Callable[[float], float]] = None
     progress_from: Optional[Provenance] = None
     progress_sigma: float = 0.1
+    monotone: bool = False                        # progress never falls (demonstrations): no setback mass from noise
     # Failure: when it first becomes visible, and what kind of failure it is.
     failure_onset: Optional[float] = None
     failure_type: Optional[str] = None

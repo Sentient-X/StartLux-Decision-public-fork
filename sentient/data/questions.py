@@ -160,6 +160,8 @@ def change(ep: Episode, ts: list[float], rng: random.Random) -> Optional[Q]:
     d = ep.progress(ts[-1]) - ep.progress(ts[0])
     sigma = SIGMA.get(ep.progress_from or '', 0.1) * 0.7
     up, flat, down = three_way(d, 0.04, sigma)
+    if ep.monotone:                       # the reading is uncertain in size, not in sign
+        up, flat, down = (up / (up + flat), flat / (up + flat), 0.0) if up + flat > 0 else (0.0, 1.0, 0.0)
     names = rng.choice(CHANGE_NAMES)
     options = F.maybe_describe(dict(zip(names, CHANGE_DESC)), rng)
     text = F.phrase(["Between the first and the last frame, how did task progress change?",
@@ -179,10 +181,10 @@ def compare(ep: Episode, ts: list[float], rng: random.Random) -> Optional[Q]:
     d = ep.progress(b) - ep.progress(a)
     names = rng.choice([("first frame", "last frame"), ("earliest frame", "latest frame"), ("start of the clip", "end of the clip")])
     sigma = SIGMA.get(ep.progress_from or '', 0.1)
-    p_b = yes_probability(d, sigma)
+    p_b = 1.0 if ep.monotone and d > 0.03 else yes_probability(d, sigma)
     tie = rng.random() < 0.5
     if tie:
-        flat = three_way(d, 0.03, sigma)[1]
+        flat = 0.0 if ep.monotone and d > 0.06 else three_way(d, 0.03, sigma)[1]
         target = {names[1]: p_b * (1 - flat), names[0]: (1 - p_b) * (1 - flat), "about the same": flat}
     else:
         target = {names[1]: p_b, names[0]: 1 - p_b}
