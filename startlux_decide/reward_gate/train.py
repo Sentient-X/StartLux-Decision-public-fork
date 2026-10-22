@@ -179,6 +179,7 @@ def train_one(kind: HeadKind, records: list[Record], entries: dict, output: Path
                 atomic_json(output / "receipt.json", receipt)
                 return receipt
         metrics, predictions = evaluate(model, dev_rows, entries, cfg)
+        atomic_json(output / "last_predictions.json", predictions)
         history.append({"epoch": epoch + 1, **metrics})
         if metrics["mae"] < best_mae:
             best_mae = metrics["mae"]

@@ -42,14 +42,17 @@ class MembershipIntegrityTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             train_rows = [source_row(0), source_row(0, task="place the cube", reward=2),
-                          source_row(1), source_row(2)]
-            train_rows[-1]["file_name"] = "bridge/bridge_originalsplit_train_index_2_clipped_00.mp4"
+                          source_row(1), source_row(2), source_row(3)]
+            train_rows[-2]["file_name"] = "bridge/bridge_originalsplit_train_index_2_clipped_00.mp4"
             for name, rows in (("train", train_rows), ("val", [source_row(1)])):
                 (root / f"{name}.jsonl").write_text("\n".join(json.dumps(row) for row in rows))
-            info = SimpleNamespace(siblings=[
-                SimpleNamespace(rfilename="val/" + source_row(1)["file_name"]),
-                SimpleNamespace(rfilename="test/" + source_row(2)["file_name"]),
-            ])
+            files = [("train/" + row["file_name"], digest(["media", [0, 0, 1, 2, 1][i]]))
+                     for i, row in enumerate(train_rows)]
+            # Different-family train index 3 is byte-identical to validation.
+            files += [("val/" + source_row(1)["file_name"], digest(["media", 1])),
+                      ("test/" + source_row(2)["file_name"], digest(["media", 2]))]
+            info = SimpleNamespace(siblings=[SimpleNamespace(rfilename=name, lfs=SimpleNamespace(sha256=sha))
+                                             for name, sha in files])
             downloaded = []
 
             def local_metadata(repo, filename, **kwargs):
@@ -64,7 +67,7 @@ class MembershipIntegrityTest(unittest.TestCase):
             training = [record for record in records if record.split == "train"]
             self.assertEqual(len(training), 2)  # keep a whole source family
             self.assertEqual({record.family for record in training}, {"bridge/bridge_originalsplit_train_index_0"})
-            self.assertEqual(manifest["train_rows_quarantined"], 2)
+            self.assertEqual(manifest["train_rows_quarantined"], 3)
             self.assertEqual(downloaded, ["train/metadata.jsonl", "val/metadata.jsonl"])
 
     def test_unknown_lineage_and_source_family_split_are_rejected(self):
@@ -174,6 +177,30 @@ class FeatureIntegrityTest(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "identity"):
             self.cache.read(key)
 
+    @unittest.skipUnless(HAS_HUB, "optional huggingface_hub is not installed")
+    def test_reuse_preserves_values_and_refuses_changed_legacy_bytes(self):
+        from startlux_decide.reward_gate.features import build_cache
+        encoder = SimpleNamespace(encoder_digest=self.index["encoder_digest"], spec=self.index["encoder"],
+                                  processor=SimpleNamespace(tokenizer=lambda *a, **kw: {"input_ids": [1]}))
+        files = {r.video: {"size": 1, "sha256": row["media_sha256"]}
+                 for r, row in zip(self.records, self.index["rows"])}
+        payload = {"repo": RR_REPO, "revision": RR_REVISION, "files": files}
+        for directory in ("copy", "refuse"):
+            atomic_json(self.root / directory / "media-inventory.json", {**payload, "digest": digest(payload)})
+        build_cache(self.manifest, self.root / "copy", encoder, 1, 10,
+                    stream_media=True, compressed=True, reuse=self.root)
+        _, entries, _ = load_features(self.manifest, self.root / "copy")
+        self.assertEqual(entries[self.records[1].id]["visual"][0, 0, 0, 0].item(), 1)
+        path = self.cache.path(self.index["rows"][0]["visual_key"])
+        with path.open("r+b") as stream:
+            stream.seek(-1, 2)
+            last = stream.read(1)
+            stream.seek(-1, 2)
+            stream.write(bytes([last[0] ^ 1]))
+        with self.assertRaisesRegex(ValueError, "original index"):
+            build_cache(self.manifest, self.root / "refuse", encoder, 1, 10,
+                        stream_media=True, compressed=True, reuse=self.root)
+
 
 @unittest.skipUnless(HAS_TORCH and importlib.util.find_spec("transformers") is not None,
                      "optional torch/transformers are not installed")
@@ -258,5 +285,8 @@ class VideoSamplingTest(unittest.TestCase):
                 for packet in stream.encode():
                     container.mux(packet)
             images, times = sample_video(path, frame_count=5)
+            memory_images, memory_times = sample_video(path.read_bytes(), frame_count=5)
+            torch.testing.assert_close(times, memory_times, rtol=0, atol=0)
+            self.assertEqual([im.tobytes() for im in images], [im.tobytes() for im in memory_images])
             torch.testing.assert_close(times, torch.tensor([0.0, 0.1, 0.1, 0.9, 0.9]))
             self.assertEqual([image.getpixel((0, 0))[0] for image in images], [0, 80, 80, 200, 200])

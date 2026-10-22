@@ -50,6 +50,35 @@ continuation threshold is a 0.02 improvement in MAE versus spatial pooling. ABC 
 review is a separate requirement. This implementation does not claim that weak action
 annotations or recovery supervision have been added to outcome training.
 
+The full laptop run uses streamed media and lossless compression. Compression preserves
+the exact cached tensor bytes; it does not pool patches or reduce precision. At most eight
+bounded media downloads are prefetched in RAM. Compatible prior frozen features can be
+reused without re-encoding, including when the new manifest has different membership.
+
+```bash
+python -m startlux_decide.reward_gate prepare \
+  --manifest runs/reward-gate/full-8000-clean/manifest.json \
+  --train-count 8000 --dev-count 512
+python -m startlux_decide.reward_gate cache \
+  --manifest runs/reward-gate/full-8000-clean/manifest.json \
+  --output runs/reward-gate/full-8000-clean/cache \
+  --device mps --local-model --stream-media --compressed \
+  --reuse runs/reward-gate/roboreward/cache \
+  --media-budget-mb 12000 --feature-budget-mb 16000
+python -m startlux_decide.reward_gate train \
+  --manifest runs/reward-gate/full-8000-clean/manifest.json \
+  --cache runs/reward-gate/full-8000-clean/cache \
+  --output runs/reward-gate/full-8000-clean/training --device mps
+python -m startlux_decide.reward_gate analyze \
+  --manifest runs/reward-gate/full-8000-clean/manifest.json \
+  --training runs/reward-gate/full-8000-clean/training
+```
+
+The analysis pairs predictions by record ID and resamples whole episode families 10,000
+times. It reports both best-development-epoch and fixed-final-epoch MAE differences.
+These intervals describe a one-seed development screen; best-epoch selection remains
+optimistic, and neither interval establishes superiority over a reference model.
+
 ## Frozen encoder and controls
 
 Encoder: `google/siglip2-base-patch16-224`, revision
@@ -89,7 +118,9 @@ or final benchmark claim is made at this stage.
   Original OXE episode indices and RoboArena recording UUIDs group clips, relabelings
   and camera views. Unknown lineage fails closed. All official validation/test families
   are reserved before training selection; development selection also excludes test
-  families. Official test metadata/labels are never downloaded.
+  families. Pinned LFS content hashes for the whole video inventory also quarantine
+  families whose clips occur under different names in reserved splits. Official test
+  metadata/labels are never downloaded.
 - Only task text and observations enter a head. Neither score-bearing filenames nor
   `gpt5_mini_check` rationales enter features. Metadata hashes and exact membership are
   saved in an immutable manifest. Same-byte media crossing train/dev is refused.

@@ -128,13 +128,26 @@ def prepare(path: Path, train_count: int, dev_count: int, seed: int = 17) -> dic
         if existing["requested"] != {"train": train_count, "dev": dev_count} or existing["seed"] != seed:
             raise ValueError("Existing immutable manifest has different selection settings; use a new path")
         return existing
-    info = HfApi().dataset_info(RR_REPO, revision=RR_REVISION)
+    info = HfApi().dataset_info(RR_REPO, revision=RR_REVISION, files_metadata=True)
     # Reserve all official validation/test families before selection, using filenames only.
     # Test metadata, instructions and rewards are never downloaded.
     reserved: set[str] = set()
     test_families: set[str] = set()
+    media_hashes: dict[str, str] = {}
+    reserved_hashes: set[str] = set()
+    test_hashes: set[str] = set()
     for sibling in info.siblings:
         split, _, filename = sibling.rfilename.partition("/")
+        if filename.endswith(".mp4"):
+            lfs = getattr(sibling, "lfs", None)
+            sha = lfs.sha256 if lfs else None
+            if not isinstance(sha, str) or len(sha) != 64:
+                raise ValueError("Pinned source media lacks LFS content identity")
+            media_hashes[sibling.rfilename] = sha
+            if split in ("val", "test"):
+                reserved_hashes.add(sha)
+            if split == "test":
+                test_hashes.add(sha)
         if split in ("val", "test") and filename.endswith(".mp4"):
             reserved.add(family_of(filename))
             if split == "test":
@@ -146,19 +159,23 @@ def prepare(path: Path, train_count: int, dev_count: int, seed: int = 17) -> dic
         meta = Path(hf_hub_download(RR_REPO, f"{official}/metadata.jsonl", repo_type="dataset", revision=RR_REVISION))
         metadata_hashes[official] = file_digest(meta)
         rows = [Record.parse(json.loads(line), role, official) for line in meta.read_text().splitlines() if line.strip()]
+        content_reserved = reserved_hashes if role == "train" else test_hashes
+        # Reserve the whole source family when even one clip has exact bytes in
+        # a held-out split under a different source filename.
+        content_families = {r.family for r in rows if media_hashes[r.video] in content_reserved}
         if role == "train":
             before = len(rows)
-            rows = [r for r in rows if r.family not in reserved]
+            rows = [r for r in rows if r.family not in reserved | content_families]
             exclusion_count = before - len(rows)
         else:
-            rows = [r for r in rows if r.family not in test_families]
+            rows = [r for r in rows if r.family not in test_families | content_families]
         selected.extend(choose_groups(rows, count, seed))
     validate_records(selected)
     result = {"version": 1, "repo": RR_REPO, "revision": RR_REVISION, "seed": seed,
               "requested": {"train": train_count, "dev": dev_count},
               "train_rows_quarantined": exclusion_count, "reserved_family_count": len(reserved),
               "metadata_sha256": metadata_hashes,
-              "overlap_scope": "known source lineage; exact downloaded bytes checked again before training; no full-corpus perceptual dedup claim",
+              "overlap_scope": "known source lineage and pinned full-corpus exact media hashes quarantined before selection; downloaded bytes checked again; no perceptual dedup claim",
               "records": [asdict(r) for r in selected]}
     result["digest"] = digest(result)
     atomic_json(path, result)
