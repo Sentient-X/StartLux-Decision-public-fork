@@ -24,7 +24,7 @@ from .questions import GENERATORS
 
 # How often each kind is asked when it applies: rarer, more informative kinds are favoured.
 WEIGHT = {"progress": 1.0, "remaining": 0.3, "time_to_go": 0.4, "will_succeed": 0.8, "succeeded": 1.0, "stage": 1.0,
-          "stage_progress": 0.6, "change": 1.2, "compare": 0.5, "failed": 1.2, "failure_type": 1.0, "failure_reason": 1.0, "takeover": 1.2,
+          "stage_progress": 0.6, "change": 1.2, "compare": 0.5, "failed": 1.2, "failure_type": 1.0, "failure_reason": 1.0, "takeover": 1.2, "end_progress": 1.0,
           "episode_score": 1.0}
 SIDES = [320, 384, 448, 512, 640]
 

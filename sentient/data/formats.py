@@ -131,6 +131,7 @@ KEYS = {
     "failure_type": ["failure_type", "what_went_wrong", "error_kind", "failure_mode", "cause"],
     "failure_reason": ["what_happened", "failure_account", "diagnosis", "explanation", "why_failed"],
     "takeover": ["needs_help", "takeover_soon", "intervention", "human_needed", "will_need_help"],
+    "end_progress": ["partial_success", "final_progress", "how_much_done", "completion_at_end"],
     "episode_score": ["score", "rating", "quality", "grade", "episode_score"],
     "preference": ["preference", "better_rollout", "which_better", "winner", "compare_rollouts"],
 }

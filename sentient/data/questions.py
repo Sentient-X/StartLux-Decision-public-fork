@@ -255,6 +255,19 @@ def takeover(ep: Episode, ts: list[float], rng: random.Random) -> Optional[Q]:
     return ("takeover", *_noul(text, p, rng))
 
 
+def end_progress(ep: Episode, ts: list[float], rng: random.Random) -> Optional[Q]:
+    """How much of the task was done by the end, from a person's end-of-episode partial-success score."""
+    p = ep.extra.get("final_progress")
+    if p is None or ts[-1] < ep.duration - 0.5:
+        return None
+    n = rng.choice([3, 4, 5, 6])
+    text = F.phrase(["How much of the task did the robot get done by the end?",
+                     "By the final frame, what share of the task has been accomplished?",
+                     "Rate the partial success of this attempt at its end."], rng)
+    return ("end_progress", *_score(text, F.percent_scale(n, rng),
+                                    levels(min(max(p, 0.0), 1.0), n, ep.extra.get("final_progress_sigma", 0.08))))
+
+
 def episode_score(ep: Episode, ts: list[float], rng: random.Random) -> Optional[Q]:
     if ep.episode_score is None or ts[-1] < ep.duration - 0.5:
         return None
@@ -268,5 +281,5 @@ def episode_score(ep: Episode, ts: list[float], rng: random.Random) -> Optional[
 GENERATORS: dict[str, Callable] = {
     "progress": progress, "remaining": remaining, "time_to_go": time_to_go, "will_succeed": will_succeed,
     "succeeded": succeeded, "stage": stage, "stage_progress": stage_progress, "change": change, "compare": compare,
-    "failed": failed, "failure_type": failure_type, "failure_reason": failure_reason, "takeover": takeover, "episode_score": episode_score,
+    "failed": failed, "failure_type": failure_type, "failure_reason": failure_reason, "takeover": takeover, "end_progress": end_progress, "episode_score": episode_score,
 }
