@@ -45,7 +45,8 @@ def yes_probability(margin: float, scale: float) -> float:
     """P(yes) for a yes/no question decided by the sign of `margin`, soft over `scale` (0: hard)."""
     if scale <= 0:
         return 1.0 if margin > 0 else 0.0
-    return 1 / (1 + math.exp(-margin / scale))
+    z = max(-60.0, min(60.0, margin / scale))
+    return 1 / (1 + math.exp(-z))
 
 
 def tidy(dist: dict[str, float], floor: float = 1e-4) -> dict[str, float]:

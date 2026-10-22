@@ -23,12 +23,21 @@ def _held_out(tasks: list[str]) -> set[str]:
 
 
 def _stage_rows(raw: Path) -> dict[int, list[tuple[float, str]]]:
-    """episode -> [(start s, text)] from the first frame of each episode (the rows repeat on every frame)."""
+    """episode -> [(start s, text)] from the first frame of each episode (the rows repeat on every frame), cached in
+    <raw>/stages.json once every data file is present."""
+    import json
+
     import pyarrow.compute as pc
     import pyarrow.parquet as pq
 
+    cache = raw / "stages.json"
+    files = sorted((raw / "data").glob("*/*.parquet"))
+    if cache.exists():
+        saved = json.loads(cache.read_text())
+        if saved["files"] == len(files):
+            return {int(k): [tuple(r) for r in v] for k, v in saved["rows"].items()}
     out: dict[int, list[tuple[float, str]]] = {}
-    for f in sorted((raw / "data").glob("*/*.parquet")):
+    for f in files:
         t = pq.read_table(f, columns=["episode_index", "frame_index", "language_persistent"])
         t = t.filter(pc.equal(t["frame_index"], 0))
         for ep, rows in zip(t["episode_index"].to_pylist(), t["language_persistent"].to_pylist()):
@@ -36,6 +45,7 @@ def _stage_rows(raw: Path) -> dict[int, list[tuple[float, str]]]:
                           if r.get("style") == "subtask" and r.get("content"))
             if subs:
                 out[int(ep)] = subs
+    cache.write_text(json.dumps({"files": len(files), "rows": {str(k): v for k, v in out.items()}}))
     return out
 
 
