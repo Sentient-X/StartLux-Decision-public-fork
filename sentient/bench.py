@@ -59,6 +59,7 @@ def _image_parts(state, images, base: Path) -> list:
 
 def engine(a):
     if a.openrouter:
+        import urllib.error
         import urllib.request
         key = os.environ["OPENROUTER_API_KEY"]
 
@@ -67,8 +68,11 @@ def engine(a):
                                "questions": questions}).encode()
             req = urllib.request.Request("https://openrouter.ai/api/v1/systemone", body,
                                          {"Content-Type": "application/json", "Authorization": f"Bearer {key}"})
-            with urllib.request.urlopen(req, timeout=300) as r:
-                doc = json.loads(r.read())
+            try:
+                with urllib.request.urlopen(req, timeout=300) as r:
+                    doc = json.loads(r.read())
+            except urllib.error.HTTPError as e:
+                raise RuntimeError(f"HTTP {e.code}: {e.read()[:400]!r}") from None
             usage = doc.get("usage") or {}
             return doc["answers"], {"cost": usage.get("cost"),
                                     "input_tokens": usage.get("prompt_tokens") or usage.get("input_tokens")}
