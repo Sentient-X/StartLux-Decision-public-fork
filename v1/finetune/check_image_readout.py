@@ -76,6 +76,7 @@ def main():
 
     worst = {"train_vs_batched": 0.0, "train_vs_v1": 0.0, "train_vs_v11": 0.0}
     for s, b, v, w in zip(single, batched, served, v11):
+        s, b = s.detach(), b.detach()
         p = torch.softmax(s.cpu(), -1)
         worst["train_vs_batched"] = max(worst["train_vs_batched"], float((p - torch.softmax(b.cpu(), -1)).abs().max()))
         worst["train_vs_v1"] = max(worst["train_vs_v1"], float((p - torch.softmax(v, -1)).abs().max()))
