@@ -2,7 +2,8 @@
 progress score 1-5 under a stated rubric. Train and val hold generated negatives (another task swapped in for the
 same video, or a successful video cut short); test is RoboRewardBench, fully human-verified, designated test.
 
-Variants of one rollout (counterfactual tasks, clips, attempts) share a family, so they never straddle splits.
+Variants of one rollout (counterfactual tasks "_attempt_N_score_N", clips "_N") share a family, and every variant of
+a rollout in RoboRewardBench is test only, so nothing about a bench episode is ever trained on.
 Questions: the 1-5 score at the end, and success where the score is unambiguous (5 done; 1-3 not done; 4 is not asked).
 """
 from __future__ import annotations
@@ -15,14 +16,15 @@ from ..episode import Episode
 from ..video import VideoFrames
 
 RUBRIC = ["no success", "minimal progress", "partial completion", "near completion", "perfect completion"]
-_VARIANT = re.compile(r"(_attempt_\d+_score_\d+|_\d+)$")
+_ROLLOUT = re.compile(r"^(.*_index_\d+)")             # the source episode; anything after it names a variant
 
 
 def _family(file_name: str) -> str:
     stem = Path(file_name).stem
     if file_name.startswith("robo_arena/"):
         return "roboarena:" + stem.split("_")[0]          # the RoboArena session, shared with sentient's roboarena source
-    return "roboreward:" + _VARIANT.sub("", stem)
+    m = _ROLLOUT.match(stem)
+    return "roboreward:" + (m.group(1) if m else stem)
 
 
 def bench_sessions(raw: Path) -> set[str]:
@@ -37,6 +39,8 @@ def bench_sessions(raw: Path) -> set[str]:
 def items(raw: Path, shard: int, shards: int):
     import av
 
+    meta = Path(raw) / "roboreward" / "test" / "metadata.jsonl"
+    bench = {_family(json.loads(l)["file_name"]) for l in open(meta)} if meta.exists() else set()
     for split in ("train", "val", "test"):
         base = Path(raw) / "roboreward" / split
         meta = base / "metadata.jsonl"
@@ -67,5 +71,5 @@ def items(raw: Path, shard: int, shards: int):
                           success_from="human" if split == "test" else "program", ends_when_done=False,
                           episode_score=(score, RUBRIC),
                           episode_score_from="human" if split == "test" else "program",
-                          designated_test=split == "test",
+                          designated_test=split == "test" or _family(row["file_name"]) in bench,
                           extra={"forecastable": False, "whole_episode": True})   # clips may be cut short of what really happened next
