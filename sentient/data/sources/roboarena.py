@@ -53,6 +53,9 @@ def items(raw: Path, shard: int, shards: int):
 
     import yaml
 
+    from .roboreward import bench_sessions
+
+    bench = bench_sessions(Path(raw))     # in RoboRewardBench: test only here too, so no claim on it leaks
     seen = set()
     for dump in DUMPS:
         base = Path(raw) / dump / "evaluation_sessions"
@@ -76,13 +79,14 @@ def items(raw: Path, shard: int, shards: int):
                 sub = next((d for d in folder.iterdir() if d.is_dir() and d.name.startswith(f"{label}_")), None)
                 ep = _rollout(session, label, sub, pm, task) if sub else None
                 if ep is not None:
+                    ep.designated_test = session in bench
                     eps[label] = ep
                     yield ep
             pref = str(meta.get("preference") or "").upper()
             if len(policies) == 2 and set(eps) == {"A", "B"} and pref in ("A", "B", "TIE"):
                 votes = {"A": (1.0, 0.0, 0.0), "B": (0.0, 1.0, 0.0), "TIE": (0.0, 0.0, 1.0)}[pref]
                 yield Preference(source="roboarena", pair_id=f"{session}:AB", family=f"roboarena:{session}", task=task,
-                                 a=eps["A"], b=eps["B"], votes=votes)
+                                 a=eps["A"], b=eps["B"], votes=votes, designated_test=session in bench)
             elif len(eps) > 2:
                 for x, y in itertools.combinations(sorted(eps), 2):
                     px, py = policies[x].get("partial_success"), policies[y].get("partial_success")
@@ -93,4 +97,5 @@ def items(raw: Path, shard: int, shards: int):
                     win = yes_probability(d, 0.05)
                     yield Preference(source="roboarena", pair_id=f"{session}:{x}{y}", family=f"roboarena:{session}",
                                      task=task, a=eps[x], b=eps[y],
-                                     votes=(win * (1 - tie), (1 - win) * (1 - tie), tie))
+                                     votes=(win * (1 - tie), (1 - win) * (1 - tie), tie),
+                                     designated_test=session in bench)
