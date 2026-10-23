@@ -34,6 +34,7 @@ def main():
     ap.add_argument("--source", action="append", required=True, help="name[:max train records]")
     ap.add_argument("--retention", type=float, default=0.2, help="share of retention questions in train")
     ap.add_argument("--dev-per-source", type=int, default=1500)
+    ap.add_argument("--test-per-source", type=int, default=400, help="records per source in the bench set")
     ap.add_argument("--seed", default="v0")
     a = ap.parse_args()
     built, out = Path(a.built), Path(a.out)
@@ -49,6 +50,7 @@ def main():
         if cap:
             rows["train"] = rows["train"][:int(cap)]
         rows["dev"] = rows["dev"][:a.dev_per_source]
+        rows["test"] = rows["test"][:a.test_per_source]
         assert not {r["meta"]["family"] for r in rows["train"]} & {r["meta"]["family"] for r in rows["test"]}, name
         train += rows["train"]
         dev += rows["dev"]

@@ -52,7 +52,7 @@ def cycle(a, n: int, last_trained: int) -> int:
         with open(mix / "test.jsonl", "a") as dst:
             src = work / "built" / name / "test.jsonl"
             rel = Path("..") / ".." / "built" / name
-            for line in open(src):
+            for line in list(open(src))[:400]:
                 rec = json.loads(line)
                 rec["images"] = [str(rel / p) for p in rec.get("images") or []]
                 dst.write(json.dumps(rec, ensure_ascii=False) + "\n")
