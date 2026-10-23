@@ -96,8 +96,9 @@ def score(a):
             per[rec["meta"]["dataset"]][0] += abs(median - truth)
             per[rec["meta"]["dataset"]][1] += 1
             n += 1
-        report[Path(path).stem] = {"episodes": n, "of": len(data), "mae_x100_median": round(100 * err_med / max(n, 1), 1),
-                                   "mae_x100_top": round(100 * err_top / max(n, 1), 1),
+        report[Path(path).stem] = {"roborewardbench": {"episodes": n, "of": len(data),
+                                                       "mae_x100_median": round(100 * err_med / max(n, 1), 1),
+                                                       "mae_x100_top": round(100 * err_top / max(n, 1), 1)},
                                    "by_dataset": {k: round(100 * e / c, 1) for k, (e, c) in sorted(per.items())}}
     print(json.dumps({"reference": {"FLORA-Rewarder": 40.0, "GPT-6 Astra": 55.4, "RoboReward-8B": 66.5},
                       **report}, indent=1))

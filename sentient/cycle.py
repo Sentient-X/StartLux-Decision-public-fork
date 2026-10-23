@@ -85,6 +85,19 @@ def cycle(a, n: int, last_trained: int) -> int:
          "--data", mix / "test.jsonl", "--train", mix / "train.jsonl", "--json", score], logs / "score.log")
     run([PY, "-m", "sentient.track", "bench", "--score", score, "--run-id", f"sentient-bench-v{n}",
          "--name", f"Sentient Decision bench v{n}"], logs / "track-bench.log")
+    if a.rrb:                              # RoboRewardBench as FLORA reports it; base predictions are made once and kept
+        rrb = Path(a.rrb)
+        base_preds = rrb.parent / "preds" / "rrb-base.jsonl"
+        if not base_preds.exists():
+            run([PY, "-m", "sentient.bench", "predict", "--model", a.base, "--data", rrb, "--out", base_preds],
+                logs / "rrb-base.log")
+        mine = preds / f"rrb-sentient-v{n}.jsonl"
+        run([PY, "-m", "sentient.bench", "predict", "--model", model, "--data", rrb, "--out", mine], logs / "rrb.log")
+        rrb_score = preds / "rrb-score.json"
+        run([PY, "-m", "sentient.roborewardbench", "score", mine, base_preds, "--data", rrb, "--json", rrb_score],
+            logs / "rrb-score.log")
+        run([PY, "-m", "sentient.track", "bench", "--score", rrb_score, "--run-id", f"sentient-rrb-v{n}",
+             "--name", f"Sentient Decision RoboRewardBench v{n}"], logs / "track-rrb.log")
     return questions
 
 
@@ -100,6 +113,7 @@ def main():
     ap.add_argument("--workers", default="12")
     ap.add_argument("--retention", default="0.2")
     ap.add_argument("--epochs", default="2")
+    ap.add_argument("--rrb", help="RoboRewardBench test.jsonl (sentient.roborewardbench build); benched each version")
     ap.add_argument("--grow", type=float, default=1.5)
     ap.add_argument("--wait", type=float, default=1800, help="seconds between cycles that did not train")
     ap.add_argument("--start", type=int, default=0, help="first version number (default: after the last mix)")
