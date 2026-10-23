@@ -44,9 +44,10 @@ def main():
         name, _, cap = spec.partition(":")
         src = built / name
         rows = {s: [_rebase(r, src, out) for r in _read(src / f"{s}.jsonl")] for s in ("train", "dev", "test")}
-        rng = random.Random(f"sentient.mix/{a.seed}:{name}")
-        for s in rows:
-            rng.shuffle(rows[s])
+        random.Random(f"sentient.mix/{a.seed}:{name}").shuffle(rows["train"])
+        for s in ("dev", "test"):         # ranked by a hash of the record, so the picks stay put as data grows
+            rows[s].sort(key=lambda r: hashlib.sha256(
+                json.dumps([r["meta"]["episode"], r["meta"].get("t"), sorted(r["questions"])]).encode()).hexdigest())
         if cap:
             rows["train"] = rows["train"][:int(cap)]
         rows["dev"] = rows["dev"][:a.dev_per_source]
