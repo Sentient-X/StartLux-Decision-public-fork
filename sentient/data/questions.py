@@ -76,8 +76,8 @@ def time_to_go(ep: Episode, ts: list[float], rng: random.Random) -> Optional[Q]:
 
 
 def will_succeed(ep: Episode, ts: list[float], rng: random.Random) -> Optional[Q]:
-    if ep.success is None or ts[-1] > ep.duration - 0.5:
-        return None
+    if ep.success is None or ts[-1] > ep.duration - 0.5 or not ep.extra.get("forecastable", True):
+        return None             # a clip cut short of its real end cannot say how the attempt turned out
     text = F.phrase(["Will the robot complete the task in this episode?", "Is this attempt going to succeed?",
                      "Judging from the frames so far, will the task end in success?",
                      "Is the robot on track to finish the task successfully?",

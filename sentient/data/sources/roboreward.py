@@ -67,4 +67,5 @@ def items(raw: Path, shard: int, shards: int):
                           success_from="human" if split == "test" else "program", ends_when_done=False,
                           episode_score=(score, RUBRIC),
                           episode_score_from="human" if split == "test" else "program",
-                          designated_test=split == "test")
+                          designated_test=split == "test",
+                          extra={"forecastable": False})   # clips may be cut short of what really happened next
