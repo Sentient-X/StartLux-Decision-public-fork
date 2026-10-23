@@ -42,9 +42,22 @@ def _save(img, path: Path, side: int) -> None:
     img.save(path, "JPEG", quality=88)
 
 
+MAX_FRAMES = 16    # the server's default image limit per request
+
+
+def whole_episode(d: float, k: int) -> list[float]:
+    """k frames spread evenly over the whole episode, first to last, as RoboRewardBench is read (FLORA's protocol
+    takes min(64, max(2, 10 T)) of them; the server takes at most MAX_FRAMES)."""
+    k = max(2, min(k, MAX_FRAMES, int(10 * d)))
+    return [min(d - 1e-3, d * i / (k - 1)) for i in range(k)]
+
+
 def window(ep: Episode, rng: random.Random) -> list[float]:
-    """Frame times of one window, chronological: 1 to 8 frames ending at an anchor, sometimes the episode's end."""
+    """Frame times of one window, chronological: 1 to 8 frames ending at an anchor, sometimes the episode's end;
+    for an episode scored as a whole (extra["whole_episode"]), 4 to 16 frames across all of it."""
     d = ep.duration
+    if ep.extra.get("whole_episode"):
+        return whole_episode(d, rng.choice([4, 6, 8, 8, 12, 16]))
     end = d if rng.random() < 0.25 else rng.uniform(min(1.0, d), d)
     k = rng.choice([1, 2, 2, 3, 4, 4, 5, 6, 8])
     span = min(end, rng.choice([1.0, 2.0, 3.0, 5.0, 8.0, 12.0, 20.0, d]))
@@ -67,7 +80,7 @@ def episode_records(ep: Episode, out: Path, windows: int) -> list[dict]:
         n = min(len(asked), rng.choice([1, 1, 2, 2, 3, 4]))
         picked = sorted(asked, key=lambda kq: -WEIGHT[kq[0]] * rng.random())[:n]
         cams = ep.cameras if len(ep.cameras) == 1 else rng.sample(ep.cameras, 2 if (rng.random() < 0.3 and len(ts) <= 4) else 1)
-        side = rng.choice(SIDES[:3] if len(ts) * len(cams) > 4 else SIDES)
+        side = rng.choice(SIDES[:2] if len(ts) * len(cams) > 8 else SIDES[:3] if len(ts) * len(cams) > 4 else SIDES)
         plans.append((w, rng, ts, picked, cams, side))
     need: dict[str, set] = {}
     for _, _, ts, _, cams, side in plans:
