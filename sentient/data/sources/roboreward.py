@@ -49,6 +49,7 @@ def items(raw: Path, shard: int, shards: int):
             path = base / row["file_name"]
             if not path.exists():
                 continue
+            duration = 0.0
             try:
                 with av.open(str(path)) as c:
                     s = c.streams.video[0]

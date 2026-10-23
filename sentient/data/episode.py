@@ -60,7 +60,8 @@ class Episode:
         """train/dev/test by a hash of the family, so whole families stay on one side; designated test stays test."""
         if self.designated_test:
             return "test"
-        h = int(hashlib.sha256(f"sentient.split/v1:{self.source}:{self.family}".encode()).hexdigest()[:12], 16)
+        # families carry their origin ("roboarena:<session>"), so one session lands on one side in every source
+        h = int(hashlib.sha256(f"sentient.split/v2:{self.family}".encode()).hexdigest()[:12], 16)
         u = h / float(1 << 48)
         return "test" if u < test else "dev" if u < test + dev else "train"
 
