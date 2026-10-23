@@ -32,7 +32,7 @@ def main():
     ap.add_argument("--built", required=True)
     ap.add_argument("--out", required=True)
     ap.add_argument("--source", action="append", required=True, help="name[:max train records]")
-    ap.add_argument("--retention", type=float, default=0.2, help="share of retention records in train")
+    ap.add_argument("--retention", type=float, default=0.2, help="share of retention questions in train")
     ap.add_argument("--dev-per-source", type=int, default=1500)
     ap.add_argument("--seed", default="v0")
     a = ap.parse_args()
@@ -55,8 +55,9 @@ def main():
         test += rows["test"]
         manifest["sources"][name] = {s: len(v) for s, v in rows.items()}
     ret = built / "retention"
-    if a.retention > 0:
-        n = int(len(train) * a.retention / (1 - a.retention))
+    if a.retention > 0:                   # a share of training questions; retention records hold one question each
+        robot_questions = sum(len(r["questions"]) for r in train)
+        n = int(robot_questions * a.retention / (1 - a.retention))
         pool = _read(ret / "train.jsonl")
         random.Random(f"sentient.mix/{a.seed}:retention").shuffle(pool)
         train += pool[:n]
