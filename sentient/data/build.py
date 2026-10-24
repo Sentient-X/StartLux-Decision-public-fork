@@ -25,7 +25,7 @@ from .questions import GENERATORS
 # How often each kind is asked when it applies: rarer, more informative kinds are favoured.
 WEIGHT = {"progress": 1.0, "remaining": 0.3, "time_to_go": 0.4, "will_succeed": 0.8, "succeeded": 1.0, "stage": 1.0,
           "stage_progress": 0.6, "change": 1.2, "compare": 0.5, "failed": 1.2, "failure_type": 1.0, "failure_reason": 1.0, "takeover": 1.2, "end_progress": 1.0,
-          "episode_score": 1.0}
+          "episode_score": 1.0, "done_now": 1.0, "instruction_match": 0.8}
 SIDES = [320, 384, 448, 512, 640]
 
 
@@ -79,6 +79,9 @@ def episode_records(ep: Episode, out: Path, windows: int) -> list[dict]:
         rng.shuffle(asked)
         n = min(len(asked), rng.choice([1, 1, 2, 2, 3, 4]))
         picked = sorted(asked, key=lambda kq: -WEIGHT[kq[0]] * rng.random())[:n]
+        solo = [kq for kq in picked if len(kq[1]) > 3]      # states another task: asked alone
+        if solo:
+            picked = solo[:1]
         cams = ep.cameras if len(ep.cameras) == 1 else rng.sample(ep.cameras, 2 if (rng.random() < 0.3 and len(ts) <= 4) else 1)
         side = rng.choice(SIDES[:2] if len(ts) * len(cams) > 8 else SIDES[:3] if len(ts) * len(cams) > 4 else SIDES)
         plans.append((w, rng, ts, picked, cams, side))
@@ -109,9 +112,10 @@ def episode_records(ep: Episode, out: Path, windows: int) -> list[dict]:
                 frames.append((c, t, rel))
         if len(frames) != len(ts) * len(cams):
             continue
-        state, imgs = F.state_and_images(ep.task, frames, ep.robot, rng)
+        stated = picked[0][1][3] if len(picked[0][1]) > 3 else ep.task
+        state, imgs = F.state_and_images(stated, frames, ep.robot, rng)
         questions, targets, used = {}, {}, set()
-        for kind, (_, spec, target) in picked:
+        for kind, (_, spec, target, *_) in picked:
             key = F.key_name(kind, rng)
             while key in used:
                 key += "_"
@@ -170,8 +174,15 @@ def _work(args):
     adapter, raw, out, windows, shard, shards = args
     mod = importlib.import_module(f"sentient.data.sources.{adapter}")
     counts, files = Counter(), {}
+    tasks: list[str] = []          # this shard's tasks so far: the negatives instruction_match draws from
     for item in mod.items(Path(raw), shard, shards):
-        recs = preference_records(item, Path(out)) if isinstance(item, Preference) else episode_records(item, Path(out), windows)
+        if isinstance(item, Preference):
+            recs = preference_records(item, Path(out))
+        else:
+            item.extra["task_pool"] = tasks[-200:]
+            recs = episode_records(item, Path(out), windows)
+            if item.task and item.task not in tasks[-200:]:
+                tasks.append(item.task)
         for r in recs:
             split = r["meta"]["split"]
             if split not in files:

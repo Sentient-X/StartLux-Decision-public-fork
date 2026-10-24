@@ -72,4 +72,5 @@ def items(raw: Path, shard: int, shards: int):
                           episode_score=(score, RUBRIC),
                           episode_score_from="human" if split == "test" else "program",
                           designated_test=split == "test" or _family(row["file_name"]) in bench,
-                          extra={"forecastable": False, "whole_episode": True})   # clips may be cut short of what really happened next
+                          extra={"forecastable": False, "whole_episode": True,
+                                 "task_is_instruction": False})   # train and val swap tasks in as negatives   # clips may be cut short of what really happened next
