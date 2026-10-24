@@ -61,7 +61,7 @@ source's labels can answer it. Data is used in the form it really has.
 
 | Technical report | Here |
 |---|---|
-| Typed decisions with soft targets, several questions per state | `sentient/data/questions.py`: 18 question kinds, each asked only from labels that support it |
+| Typed decisions with soft targets, several questions per state | `sentient/data/questions.py`: 19 question kinds, each asked only from labels that support it |
 | Hash-permuted options; broad formats | `sentient/data/formats.py`: state as text or JSON in 7 layouts and 12 caption styles; wording banks; random key names, option names, order and descriptions; percent scales of 3 to 10 levels |
 | Part of the earlier mixture kept | `sentient/data/retention.py`: 20% general typed decisions (SNLI, BoolQ, CommonsenseQA, ARC, HellaSwag, OpenBookQA, WinoGrande), so the model stays a general decision model |
 | Soft cross-entropy on the letter read-out, LoRA adapters merged | `v1/finetune/finetune_lora.py`, unchanged except that records may carry images, read exactly as served (`check_image_readout.py`: difference 0.0 against the v1.1 engine) |
@@ -78,7 +78,7 @@ source's labels can answer it. Data is used in the form it really has.
 | Advantage | change, compare | did this window move the task forward; which frame is further along | dense progress |
 | Outcome | succeeded, done_now, end_progress, episode_score | the verdict at the end; whether it is finished yet; partial credit; graded quality | success, stage ends, end-of-episode scores |
 | Grounding | instruction_match | does the footage show the stated task, against hard negatives from the same robot and scene | task text |
-| Failure | failed, failure_type, failure_reason | when it went wrong, the kind of failure, why | exhaustive human failure marks |
+| Failure | failed, failure_when, failure_type, failure_reason | whether it has gone wrong, between which frames it began, the kind of failure, why | exhaustive human failure marks |
 | Intervention | takeover | a person is about to take over | intervention times |
 | Preference | preference | which of two rollouts did the task better | human comparisons |
 
@@ -120,7 +120,7 @@ Each outside benchmark is reproduced under its owner's protocol, and none of its
 | **RoboJev SO-101** (ArmnetBench, 268 rollouts) | success, 10 frames + final views | AUROC / balanced accuracy | RoboJev-27B **0.993 / 0.952** | pending | `sentient.robojevbench` |
 | **RoboJev unseen labs** (RBM-1M OOD, 459) | success | AUROC / balanced accuracy | JEV-27B-VL **0.900**; Sol **0.791** balanced accuracy | pending | `sentient.robojevbench` |
 | **Robometer OOD ranking** (571) | rank failure < suboptimal < success within a task | Kendall τa ×100 | GPT-6 Astra **82.3**; FLORA 72.0; RynnValue-8B 70.4; Robometer 65.5 | pending | `sentient.robometerbench` |
-| **Sentient bench** (held-out episodes of every training source) | all 18 kinds | accuracy, log loss, Brier, ECE per kind and source | beat the class prior on every kind; beat Jev 1.14 and d1-ultra | pilot: 0.70 accuracy, 0.74 log loss, 0.02 ECE (Jev 1.14: 0.59 / 1.04) | `sentient.bench` |
+| **Sentient bench** (held-out episodes of every training source) | all 19 kinds | accuracy, log loss, Brier, ECE per kind and source | beat the class prior on every kind; beat Jev 1.14 and d1-ultra | pilot: 0.70 accuracy, 0.74 log loss, 0.02 ECE (Jev 1.14: 0.59 / 1.04) | `sentient.bench` |
 
 Next to add:
 
@@ -162,7 +162,7 @@ The response follows the gap:
      before the end.
    - `instruction_match` teaches whether the footage shows the stated task, using other tasks from the same robot
      and scene as negatives. Success is judged against an instruction, so grounding the instruction comes first.
-3. **Failure localisation before failure naming**, since naming the failure type is weak while spotting a failure
+3. **Failure localisation before failure naming** (`failure_when`), since naming the failure type is weak while spotting a failure
    nearly matches the prior.
 4. **Whole-episode windows** for sources scored as a whole, as outcome benchmarks read them.
 

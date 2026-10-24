@@ -9,6 +9,7 @@ The kinds, by what they teach:
   stage, stage_progress                          SARM-style: which subtask, and how far into it
   change, compare                                advantage: did the window move the task forward, which frame is ahead
   failed, failure_type, takeover                 failure onset, its kind, and an imminent human takeover
+  failure_when                                   between which two time steps a failure first became visible
   succeeded, episode_score                       outcome of the whole episode
   done_now                                       is the task finished yet, at a frame before the episode ends
   instruction_match                              does the footage show the stated task (other tasks of the source
@@ -260,6 +261,28 @@ def failed(ep: Episode, ts: list[float], rng: random.Random) -> Optional[Q]:
     return ("failed", *_noul(text, p, rng, "a failure is visible", "no failure so far"))
 
 
+def _ordinal(n: int) -> str:
+    return f"{n}{'th' if 10 <= n % 100 <= 20 else {1: 'st', 2: 'nd', 3: 'rd'}.get(n % 10, 'th')}"
+
+
+def failure_when(ep: Episode, ts: list[float], rng: random.Random) -> Optional[Q]:
+    """Localise the onset among the window's time steps; a source that marked every failure also says "none yet"."""
+    if ep.failure_from is None or not 3 <= len(ts) <= 8 or (ep.failure_onset is None and ep.success is not True):
+        return None
+    from .targets import binned
+    names = ["before the 1st time step"] + [f"between the {_ordinal(i)} and {_ordinal(i + 1)} time steps"
+                                             for i in range(1, len(ts))] + ["not yet, by the last time step"]
+    if ep.failure_onset is None:
+        dist = [0.0] * (len(names) - 1) + [1.0]
+    else:
+        dist = binned(ep.failure_onset, [ts[0] - 1e6] + list(ts) + [ts[-1] + 1e6],
+                      0.15 if ep.failure_from == "human" else 0.4)
+    text = F.phrase(["When did a failure first become visible?", "Between which frames does the attempt start to go wrong?",
+                     "Locate the moment the failure begins.", "At which point in the clip does something first go wrong?"], rng)
+    return ("failure_when", {"type": "choice", "instructions": text, "criteria": {n: None for n in names}},
+            tidy(dict(zip(names, dist))))
+
+
 def failure_type(ep: Episode, ts: list[float], rng: random.Random) -> Optional[Q]:
     if ep.failure_onset is None or not ep.failure_type or not ep.failure_types or ts[-1] < ep.failure_onset + 0.5:
         return None
@@ -333,5 +356,5 @@ GENERATORS: dict[str, Callable] = {
     "progress": progress, "remaining": remaining, "time_to_go": time_to_go, "will_succeed": will_succeed,
     "succeeded": succeeded, "stage": stage, "stage_progress": stage_progress, "change": change, "compare": compare,
     "done_now": done_now, "instruction_match": instruction_match,
-    "failed": failed, "failure_type": failure_type, "failure_reason": failure_reason, "takeover": takeover, "end_progress": end_progress, "episode_score": episode_score,
+    "failed": failed, "failure_when": failure_when, "failure_type": failure_type, "failure_reason": failure_reason, "takeover": takeover, "end_progress": end_progress, "episode_score": episode_score,
 }
