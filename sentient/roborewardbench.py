@@ -1,6 +1,7 @@
 """RoboRewardBench as FLORA reports it: all 2,831 human-scored test episodes of teetone/RoboReward, one 1-5 outcome
 score per episode, mean absolute error on the 1-5 scale x 100 (FLORA-Rewarder 40.0, GPT-6 Astra 55.4, RoboReward-8B
-66.5; FLORA paper, Table 4 and Appendix C).
+66.5; FLORA paper, Table 4 and Appendix C). The headline is RoboReward's "overall": the mean of the per-dataset MAEs,
+not the mean over episodes (both are reported).
 
     python -m sentient.roborewardbench build --raw ~/sd-data/raw --out ~/sd-data/rrb
     python -m sentient.bench predict --model <folder> --data ~/sd-data/rrb/test.jsonl --out preds/rrb-<name>.jsonl
@@ -96,9 +97,11 @@ def score(a):
             per[rec["meta"]["dataset"]][0] += abs(median - truth)
             per[rec["meta"]["dataset"]][1] += 1
             n += 1
+        groupwise = sum(e / c for e, c in per.values()) / max(len(per), 1)
         report[Path(path).stem] = {"roborewardbench": {"episodes": n, "of": len(data),
-                                                       "mae_x100_median": round(100 * err_med / max(n, 1), 1),
-                                                       "mae_x100_top": round(100 * err_top / max(n, 1), 1)},
+                                                       "mae_x100": round(100 * groupwise, 1),
+                                                       "mae_x100_pooled_median": round(100 * err_med / max(n, 1), 1),
+                                                       "mae_x100_pooled_top": round(100 * err_top / max(n, 1), 1)},
                                    "by_dataset": {k: round(100 * e / c, 1) for k, (e, c) in sorted(per.items())}}
     print(json.dumps({"reference": {"FLORA-Rewarder": 40.0, "GPT-6 Astra": 55.4, "RoboReward-8B": 66.5},
                       **report}, indent=1))
