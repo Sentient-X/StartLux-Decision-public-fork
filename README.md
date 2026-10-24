@@ -1,3 +1,20 @@
+# Sentient Decision
+
+**One calibrated model for every question about a robot episode.** Give it frames from any robot and the task, then
+ask: how far along is it, which step is under way, did that window help or hurt, will it work out, did it, what went
+wrong and when, should a person take over, which rollout is better. Every answer is a probability that means what it
+says. Reward, value, advantage, success, failure detection and preference come from one set of weights.
+
+Sentient Decision fine-tunes StartLux-Decision (below) with that model's own published recipe on robot episodes,
+turned into 19 kinds of typed question across many robots, labs and formats. It is measured on every specialist's own
+benchmark: FLORA and RoboReward on RoboRewardBench, RoboJev on ArmnetBench and unseen labs, and Robometer on its OOD
+ranking.
+
+**[Vision, data, benchmarks and results →](docs/sentient/README.md)** · [dataset catalog](docs/sentient/datasets.md) ·
+code in [`sentient/`](sentient)
+
+---
+
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/assets/banner_dark.png">
   <img src="docs/assets/banner_light.png" alt="StartLux-Decision" width="100%">
